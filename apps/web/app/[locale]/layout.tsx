@@ -5,6 +5,9 @@ import { notFound } from "next/navigation";
 import { routing } from "../../i18n/routing";
 
 import { ThemeProvider } from "./components/ThemeProvider";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { OfflineErrorBoundary } from "@/components/OfflineErrorBoundary";
+import { ServiceWorkerProvider } from "@/components/ServiceWorkerProvider";
 import Chatbot from "./components/Chatbot";
 import "./globals.css";
 import "../../src/styles/print.css";
@@ -56,17 +59,22 @@ export default async function LocaleLayout({
     return (
         <html lang={locale} suppressHydrationWarning>
             <body>
-                <ThemeProvider>
-                    <NextIntlClientProvider messages={messages}>
-                        {children}
+                <ServiceWorkerProvider>
+                    <ThemeProvider>
+                        <NextIntlClientProvider messages={messages}>
+                            <OfflineErrorBoundary>
+                                <OfflineBanner />
+                                {children}
+                                <div className="no-print">
+                                    <Chatbot />
+                                </div>
+                            </OfflineErrorBoundary>
+                        </NextIntlClientProvider>
                         <div className="no-print">
-                            <Chatbot />
+                            <Toaster richColors position="top-center" />
                         </div>
-                    </NextIntlClientProvider>
-                    <div className="no-print">
-                        <Toaster richColors position="top-center" />
-                    </div>
-                </ThemeProvider>
+                    </ThemeProvider>
+                </ServiceWorkerProvider>
             </body>
         </html>
     );
