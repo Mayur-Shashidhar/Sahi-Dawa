@@ -5,14 +5,29 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 /**
  * Hook to manage offline/online status and automatic retry on reconnection
  * Detects network connectivity and provides callbacks for retry logic
+ * Supports test mode via ?offline=true query parameter
  */
 export const useOfflineStatus = () => {
   const [isOffline, setIsOffline] = useState(false);
   const [isStatusDirty, setIsStatusDirty] = useState(false);
+  const [isTestMode, setIsTestMode] = useState(false);
   const retryCallbacksRef = useRef<Set<() => void>>(new Set());
 
   useEffect(() => {
-    // Check initial connectivity status
+    // Check if we're in test mode
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const testMode = params.get('offline') === 'true';
+      setIsTestMode(testMode);
+
+      if (testMode) {
+        console.log('🧪 OFFLINE TEST MODE ENABLED - Banner will show');
+        setIsOffline(true);
+        return; // Skip normal online/offline detection
+      }
+    }
+
+    // Handle online/offline status
     const handleOnline = () => {
       setIsOffline(false);
       setIsStatusDirty(true);
@@ -59,6 +74,7 @@ export const useOfflineStatus = () => {
   return {
     isOffline,
     isStatusDirty,
+    isTestMode,
     registerRetryCallback,
     unregisterRetryCallback,
   };

@@ -52,15 +52,39 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip service worker development WebSocket requests
+  if (request.url.includes('webpack-hmr') || request.url.includes('_next/webpack-hmr')) {
+    return; // Let these fail naturally for dev mode
+  }
+
+  // Skip manifest requests - let them fail naturally so app can work offline without it
+  if (request.url.endsWith('manifest.json')) {
+    return; // Let the network handle this
+  }
+
+  // Skip dynamic JS chunks during dev, but DO intercept CSS/fonts for caching
+  if (
+    request.url.includes('_next/static/chunks/') &&
+    request.destination === 'script'
+  ) {
+    return; // Let dev server handle JS chunks directly
+  }
+
   // API requests: network first, fall back to cache
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Cache successful API responses
+          // Cache successful API responses - clone immediately
           if (response.ok) {
-            const cache = caches.open(API_CACHE_NAME);
-            cache.then((c) => c.put(request, response.clone()));
+            const responseClone = response.clone();
+            caches.open(API_CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone).catch((err) => {
+                console.log('Failed to cache API response:', err);
+              });
+            }).catch((err) => {
+              console.log('Failed to open API cache:', err);
+            });
           }
           return response;
         })
@@ -93,10 +117,16 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Cache successful HTML responses
+          // Cache successful HTML responses - clone immediately
           if (response.ok) {
-            const cache = caches.open(OFFLINE_CACHE_NAME);
-            cache.then((c) => c.put(request, response.clone()));
+            const responseClone = response.clone();
+            caches.open(OFFLINE_CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone).catch((err) => {
+                console.log('Failed to cache HTML response:', err);
+              });
+            }).catch((err) => {
+              console.log('Failed to open offline cache:', err);
+            });
           }
           return response;
         })
@@ -133,10 +163,16 @@ self.addEventListener('fetch', (event) => {
         }
         return fetch(request)
           .then((response) => {
-            // Cache successful responses
+            // Cache successful responses - clone immediately
             if (response.ok) {
-              const cache = caches.open(STATIC_CACHE_NAME);
-              cache.then((c) => c.put(request, response.clone()));
+              const responseClone = response.clone();
+              caches.open(STATIC_CACHE_NAME).then((cache) => {
+                cache.put(request, responseClone).catch((err) => {
+                  console.log('Failed to cache static asset:', err);
+                });
+              }).catch((err) => {
+                console.log('Failed to open static cache:', err);
+              });
             }
             return response;
           })
@@ -145,7 +181,7 @@ self.addEventListener('fetch', (event) => {
             if (request.destination === 'image') {
               return caches.match('/images/placeholder.png').catch(() => {
                 return new Response(
-                  '<svg><rect width="100" height="100" fill="#ccc"/></svg>',
+                  '<svg width="100" height="100"><rect width="100" height="100" fill="#e0e0e0"/></svg>',
                   { headers: { 'Content-Type': 'image/svg+xml' } }
                 );
               });
